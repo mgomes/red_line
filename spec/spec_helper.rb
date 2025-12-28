@@ -3,6 +3,7 @@
 require "bundler/setup"
 require "red_line"
 require "timecop"
+require "concurrent"
 
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|

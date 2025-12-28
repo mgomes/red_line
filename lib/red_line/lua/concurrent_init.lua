@@ -10,12 +10,16 @@ local locks_key = KEYS[2]
 local limit = tonumber(ARGV[1])
 local ttl = tonumber(ARGV[2])
 
--- Only initialize if key doesn't exist
-local exists = redis.call('EXISTS', slots_key)
-if exists == 0 then
-  -- Check if there are held locks (from a previous init)
-  local held_locks = redis.call('HLEN', locks_key)
-  local slots_to_add = limit - held_locks
+-- Check current state
+local current_slots = redis.call('LLEN', slots_key)
+local held_locks = redis.call('HLEN', locks_key)
+local total_known = current_slots + held_locks
+
+-- Only add slots if we're below the limit
+-- This handles: initial creation, recovery after crash, and prevents
+-- re-initialization when list is empty because all slots are held
+if total_known < limit then
+  local slots_to_add = limit - total_known
   for i = 1, slots_to_add do
     redis.call('RPUSH', slots_key, '1')
   end
@@ -24,5 +28,9 @@ if exists == 0 then
   end
   return slots_to_add
 end
-redis.call('EXPIRE', slots_key, ttl)
+
+-- Refresh TTL if slots exist
+if current_slots > 0 then
+  redis.call('EXPIRE', slots_key, ttl)
+end
 return 0

@@ -9,4 +9,5 @@ group :development, :test do
   gem "rspec", "~> 3.12"
   gem "timecop", "~> 0.9"
   gem "rubocop", "~> 1.21"
+  gem "concurrent-ruby", "~> 1.2"
 end
