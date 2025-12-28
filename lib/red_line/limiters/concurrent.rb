@@ -57,21 +57,29 @@ module RedLine
       def acquire_lock
         lock_id = generate_lock_id
 
-        slot = connection.call("LPOP", slots_key)
-        if slot
-          record_lock(lock_id)
+        # Try atomic non-blocking acquire first
+        acquired = connection.call_script(
+          "concurrent_acquire",
+          keys: [slots_key, locks_key],
+          args: [lock_id, current_time.to_s, @ttl]
+        )
+
+        if acquired == 1
           increment_metric(:immediate)
           increment_metric(:held)
           return lock_id
         end
 
+        # Fall back to blocking wait
         increment_metric(:waited)
         wait_start = current_time
 
         result = connection.blocking_call(@wait_timeout, "BLPOP", slots_key, @wait_timeout)
 
         if result
-          record_lock(lock_id)
+          # Record lock atomically after BLPOP returns
+          connection.call("HSET", locks_key, lock_id, current_time.to_s)
+          connection.call("EXPIRE", locks_key, @ttl)
           record_wait_time(current_time - wait_start)
           increment_metric(:held)
           return lock_id
@@ -99,14 +107,13 @@ module RedLine
       def initialize_slots
         connection.call_script(
           "concurrent_init",
-          keys: [slots_key, locks_key],
+          keys: [slots_key, locks_key, init_key],
           args: [@limit, @ttl]
         )
       end
 
-      def record_lock(lock_id)
-        connection.call("HSET", locks_key, lock_id, current_time.to_s)
-        connection.call("EXPIRE", locks_key, @ttl)
+      def init_key
+        @init_key ||= redis_key("init")
       end
 
       def generate_lock_id
