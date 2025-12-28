@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: ["3.2", "3.3", "3.4", "4.0"]
+        redis-backend:
+          - name: redis
+            image: redis:7-alpine
+          - name: valkey
+            image: valkey/valkey:8-alpine
+
+    name: Ruby ${{ matrix.ruby-version }} / ${{ matrix.redis-backend.name }}
+
+    services:
+      redis:
+        image: ${{ matrix.redis-backend.image }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping || valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby ${{ matrix.ruby-version }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Run tests
+        run: bundle exec rspec
+        env:
+          REDIS_URL: redis://localhost:6379/15
+
+      - name: Run tests with coverage
+        if: matrix.ruby-version == '3.3' && matrix.redis-backend.name == 'redis'
+        run: bundle exec rspec
+        env:
+          REDIS_URL: redis://localhost:6379/15
+          COVERAGE: true
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bundle exec rubocop --parallel
+        continue-on-error: true

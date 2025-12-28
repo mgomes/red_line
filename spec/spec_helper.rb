@@ -3,6 +3,7 @@
 require "bundler/setup"
 require "red_line"
 require "timecop"
+require "concurrent"
 
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
@@ -15,7 +16,6 @@ RSpec.configure do |config|
 
   config.shared_context_metadata_behavior = :apply_to_host_groups
   config.filter_run_when_matching :focus
-  config.example_status_persistence_file_path = "spec/examples.txt"
   config.disable_monkey_patching!
   config.warnings = true
 
@@ -26,7 +26,11 @@ RSpec.configure do |config|
 
   config.before(:suite) do
     RedLine.configure do |c|
-      c.redis_db = 15
+      if ENV["REDIS_URL"]
+        c.redis_url = ENV["REDIS_URL"]
+      else
+        c.redis_db = 15
+      end
     end
   end
 

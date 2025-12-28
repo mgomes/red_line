@@ -30,7 +30,7 @@ module RedLine
     def initialize
       @redis_host = "localhost"
       @redis_port = 6379
-      @redis_db = 0
+      @redis_db = nil
       @pool_size = 5
       @pool_timeout = 5
       @default_wait_timeout = 5
