@@ -81,7 +81,8 @@ RSpec.describe "Edge cases", :redis do
     end
 
     describe "very short wait_timeout" do
-      let(:limiter) { RedLine.bucket("edge-short-timeout", 1, :second, wait_timeout: 0.05) }
+      # Use a longer interval (60s) so the bucket doesn't reset during the test
+      let(:limiter) { RedLine.bucket("edge-short-timeout", 1, 60, wait_timeout: 0.05) }
 
       it "respects the short timeout" do
         limiter.within_limit { }
@@ -90,6 +91,7 @@ RSpec.describe "Edge cases", :redis do
         expect { limiter.within_limit { } }.to raise_error(RedLine::OverLimit)
         elapsed = Time.now - start
 
+        # Should fail quickly (within wait_timeout) not wait for bucket reset
         expect(elapsed).to be < 0.2
       end
     end
