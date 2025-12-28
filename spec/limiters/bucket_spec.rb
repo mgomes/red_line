@@ -10,22 +10,27 @@ RSpec.describe RedLine::Limiters::Bucket, :redis do
       expect(results).to all(eq(:ok))
     end
 
-    it "raises OverLimit when limit exceeded" do
-      5.times { limiter.within_limit { } }
-
-      expect { limiter.within_limit { } }.to raise_error(RedLine::OverLimit) do |error|
-        expect(error.limiter_name).to eq("test-bucket")
-        expect(error.limiter_type).to eq("bucket")
-        expect(error.limit).to eq(5)
-      end
-    end
-
     it "resets after the bucket expires" do
       5.times { limiter.within_limit { } }
 
       sleep(1.1)
 
       expect { limiter.within_limit { :ok } }.not_to raise_error
+    end
+  end
+
+  describe "raises OverLimit when limit exceeded" do
+    # Use a longer interval to avoid bucket boundary issues during test execution
+    let(:limiter) { RedLine.bucket("test-bucket-overlimit", 5, 60, wait_timeout: 0) }
+
+    it "raises OverLimit with correct attributes" do
+      5.times { limiter.within_limit { } }
+
+      expect { limiter.within_limit { } }.to raise_error(RedLine::OverLimit) do |error|
+        expect(error.limiter_name).to eq("test-bucket-overlimit")
+        expect(error.limiter_type).to eq("bucket")
+        expect(error.limit).to eq(5)
+      end
     end
   end
 

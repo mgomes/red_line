@@ -45,7 +45,7 @@ module RedLine
     end
 
     def current_time
-      Process.clock_gettime(Process::CLOCK_REALTIME)
+      Time.now.to_f
     end
   end
 end
